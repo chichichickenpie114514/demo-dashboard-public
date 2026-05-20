@@ -1,0 +1,22 @@
+# Build the snapshot-monthly Cloud Run Job image from Dockerfile.snapshot.
+# Usage:
+#   gcloud builds submit --config=cloudbuild-snapshot.yaml \
+#       --substitutions=_IMAGE_TAG=phase-ab \
+#       --region=asia-northeast1
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.snapshot
+      - -t
+      - asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/snapshot-monthly:${_IMAGE_TAG}
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/snapshot-monthly:${_IMAGE_TAG}
+images:
+  - asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/snapshot-monthly:${_IMAGE_TAG}
+substitutions:
+  _IMAGE_TAG: phase-ab

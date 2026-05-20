@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    Flask==3.1.3 \
+    Authlib==1.4.1 \
+    requests==2.32.3 \
+    mysql-connector-python==9.1.0 \
+    google-cloud-storage==3.10.1 \
+    google-auth==2.34.0 \
+    google-api-python-client==2.146.0 \
+    openpyxl==3.1.5
+
+COPY snapshot.py config.py server_snapshot.py appsheet_sync.py haifu_sync.py manage_jrn_sync.py index.html favicon.svg ./
+COPY appsheet_cache.json ./
+COPY 002-2_管理会計仕訳_手入力シート.xlsx ./
+
+ENV SQLITE_PATH=/tmp/sales.db
+ENV GCS_BUCKET=demo-dashboard-data
+
+CMD ["python3", "snapshot.py"]

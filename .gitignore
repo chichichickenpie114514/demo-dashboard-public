@@ -1,0 +1,8 @@
+.env
+*.db
+appsheet_cache.json
+__pycache__/
+*.pyc
+.claude/
+haifu_cache.json
+debug_*

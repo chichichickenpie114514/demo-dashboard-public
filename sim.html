@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>データについて — Demo Sales Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --bg: #f8f9fb; --surface: #ffffff; --border: #e5e7eb; --text: #1a1d23; --muted: #6b7280; --radius: 10px; }
+body { font-family: 'Noto Sans JP', 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.8; -webkit-font-smoothing: antialiased; }
+header { background: linear-gradient(135deg, #1c2b3d 0%, #2a3f5f 100%); padding: 0 24px; height: 56px; display: flex; align-items: center; box-shadow: 0 2px 12px rgba(30,64,175,.15); }
+header a { font-size: 17px; font-weight: 700; color: #fff; text-decoration: none; letter-spacing: -0.01em; font-family: 'DM Sans', 'Noto Sans JP', sans-serif; }
+header a:hover { opacity: 0.85; }
+main { max-width: 680px; margin: 48px auto; padding: 0 24px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 20px; }
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 24px; color: #1c2b3d; }
+h2 { font-size: 15px; font-weight: 700; margin: 20px 0 10px; color: #2a3f5f; }
+p { margin: 8px 0; }
+code { background: #f1f3f5; padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: 'DM Sans', monospace; }
+ul { list-style: none; padding: 0; }
+li { padding: 4px 0; }
+li::before { content: '■ '; color: #3b6bb5; }
+.badge-notice { display: inline-block; background: #6366f1; color: #fff; font-size: 11px; font-weight: 600; padding: 3px 12px; border-radius: 99px; margin-bottom: 20px; }
+.footer { text-align: center; font-size: 12px; color: var(--muted); margin-top: 40px; }
+.footer a { color: #3b6bb5; text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">売上ダッシュボード</a>
+</header>
+<main>
+  <div class="card">
+    <span class="badge-notice">シミュレーションデータ</span>
+    <h1>このダッシュボードのデータについて</h1>
+    <p>このダッシュボードに表示される<strong>すべてのデータはシミュレーション</strong>です。実在の企業・個人・財務データは一切含まれていません。</p>
+
+    <h2>データ生成</h2>
+    <ul>
+      <li><code>generate_demo_data.py</code> により生成（<code>random.seed=42</code> で決定論的出力）</li>
+      <li>12ヶ月分（2025年4月〜2026年3月）、194ファイル、全ファイル整合性検証済</li>
+    </ul>
+
+    <h2>施設データ</h2>
+    <ul>
+      <li>26件の架空施設（桜木拠点、けやき拠点 等、一般的な地名を使用）</li>
+      <li>居宅系 / 施設系 / サービス拠点に分類、実際の介護事業所の業態構成を反映</li>
+    </ul>
+
+    <h2>利用者データ</h2>
+    <ul>
+      <li>約1,800名の合成氏名（一般的な日本の姓100件 × 名前40件の組合せ）</li>
+      <li>各利用者に請求明細・契約サービス・保険利用分析を紐付け</li>
+    </ul>
+
+    <h2>売上・財務データ</h2>
+    <ul>
+      <li>施設別のサービスコード分布に基づき、実際の業界構成比を反映した数値を生成</li>
+      <li>保険負担 / 自己負担の比率も業界標準（約7:3）に準拠</li>
+    </ul>
+
+    <h2>データ整合性</h2>
+    <ul>
+      <li>KPI合計 ＝ 施設別請求合計（100.00%一致）</li>
+      <li>個人別合計 ＝ 明細別請求合計（完全一致）</li>
+      <li>全ファイル間で施設名・利用者ID・カテゴリの一貫性を保持</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a href="/">← ダッシュボードに戻る</a>
+  </div>
+</main>
+</body>
+</html>

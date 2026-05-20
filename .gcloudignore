@@ -1,0 +1,25 @@
+# Sensitive / local-only
+.env
+__pycache__/
+*.pyc
+.claude/
+.git/
+.gitignore
+
+# Test files
+test_chat.py
+test_chat_guard.py
+test_chat_rounds.py
+
+# Docs — only keep AI prompts needed at runtime
+docs/DASHBOARD_GUIDE.md
+docs/USAGE_GUIDE.md
+
+# Reference files (not needed at runtime)
+snapshot.py
+server_snapshot.py
+Dockerfile.snapshot
+deploy.sh
+cloudbuild-snapshot.yaml
+generate_demo_data.py
+Archive.zip

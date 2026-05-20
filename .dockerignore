@@ -1,0 +1,13 @@
+.env
+__pycache__
+*.pyc
+*.db
+Archive.zip
+.firebase
+.claude
+docs/DASHBOARD_GUIDE.md
+docs/USAGE_GUIDE.md
+README.md
+.git
+.gitignore
+.gcloudignore

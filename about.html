@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo Sales Dashboard — Architecture & Data Flow</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f8f9fb;--surface:#fff;--border:#e5e7eb;--text:#1a1d23;--muted:#6b7280;--radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08);--accent:#3b6bb5;--accent2:#3889a8;--accent3:#3a8f72;--warm:#c08830;--purple:#6366f1;--red:#b84040}
+[data-theme=dark]{--bg:#111318;--surface:#1a1d24;--border:#2d3039;--text:#d4d6db;--muted:#9ca3af}
+[data-theme=dark] .card{background:#1e2130;border-color:#353848}
+[data-theme=dark] .card code{background:rgba(255,255,255,.06);color:#c4c8d0}
+[data-theme=dark] .vflow-step{background:#1e2130;border-color:#353848}
+[data-theme=dark] .vflow-step .vstep-desc{color:#9ca3af}
+[data-theme=dark] .detail-card{background:#1e2130;border-color:#353848}
+[data-theme=dark] .flow-box{background:#1e2130;border-color:#353848}
+[data-theme=dark] .pipe-step{background:#1e2130;border-color:#353848}
+[data-theme=dark] .callout{background:rgba(99,102,241,.08);border-left-color:rgba(99,102,241,.4)}
+[data-theme=dark] .callout.info{background:rgba(59,107,181,.08);border-left-color:rgba(59,107,181,.4)}
+[data-theme=dark] .callout.green{background:rgba(58,143,114,.08);border-left-color:rgba(58,143,114,.4)}
+[data-theme=dark] .cmp-header-prod{background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(99,102,241,.04))!important;border-color:rgba(99,102,241,.25)!important}
+[data-theme=dark] .cmp-header-demo{background:linear-gradient(135deg,rgba(59,107,181,.12),rgba(59,107,181,.04))!important;border-color:rgba(59,107,181,.25)!important}
+[data-theme=dark] .stage-pill{background:#232738;border-color:#353848;color:#c4c8d0}
+[data-theme=dark] table.tbl th{color:#9ca3af}
+[data-theme=dark] table.tbl td{border-color:#2d3039}
+[data-theme=dark] .kpi-badge{background:#1e2130;border-color:#353848}
+[data-theme=dark] .vflow-label{color:#9ca3af}
+[data-theme=dark] .vflow-conn{background:linear-gradient(180deg,#353848,#6366f1)}
+#chat-fab:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(30,64,175,.35)}
+[data-theme=dark] #chat-fab{box-shadow:0 4px 16px rgba(30,64,175,.4)}
+body{font-family:'Noto Sans JP','DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased;line-height:1.7}
+header{background:linear-gradient(135deg,#1c2b3d 0%,#2a3f5f 100%);padding:0 24px;height:56px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(30,64,175,.15)}
+[data-theme=dark] header{background:linear-gradient(135deg,#111318 0%,#1c2536 100%)}
+header h1{font-size:17px;font-weight:700;color:#fff;flex:1;font-family:'DM Sans','Noto Sans JP',sans-serif;letter-spacing:-.01em}
+header a.back{font-size:12px;color:rgba(255,255,255,.7);text-decoration:none;padding:5px 12px;border:1px solid rgba(255,255,255,.2);border-radius:6px;transition:background .15s}
+header a.back:hover{background:rgba(255,255,255,.15)}
+header button.theme{background:none;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:4px 8px;cursor:pointer;color:#fff;font-size:14px}
+.page{max-width:960px;margin:0 auto;padding:32px 24px 80px}
+.hero{text-align:center;padding:56px 0 48px}
+.hero h2{font-family:'DM Sans','Noto Sans JP',sans-serif;font-size:34px;font-weight:800;letter-spacing:-.03em;color:var(--text);margin-bottom:12px}
+.hero .sub{color:var(--muted);font-size:15px;max-width:640px;margin:0 auto 28px}
+.hero .kpi-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.hero .kpi-badge{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:14px 20px;text-align:center;min-width:100px;box-shadow:var(--shadow)}
+.hero .kpi-badge .num{font-family:'DM Sans',sans-serif;font-size:24px;font-weight:800;color:var(--accent);letter-spacing:-.02em}
+.hero .kpi-badge .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.section{margin-bottom:52px}
+.section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--accent);display:inline-block}
+.section-label.purple{color:var(--purple);border-color:var(--purple)}
+.section-label.green{color:var(--accent3);border-color:var(--accent3)}
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:24px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h3{font-size:16px;font-weight:700;margin-bottom:6px}
+.card h4{font-size:14px;font-weight:700;margin:16px 0 6px}
+.card p,.card li{font-size:13px;color:var(--muted);line-height:1.8}
+.card ul{padding-left:20px;margin:8px 0}
+.card code{background:var(--bg);padding:1px 6px;border-radius:4px;font-size:12px}
+table.tbl{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
+table.tbl th{text-align:left;color:var(--muted);font-weight:600;padding:6px 10px;border-bottom:2px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+table.tbl td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+table.tbl td:first-child{font-weight:600;white-space:nowrap}
+.tag{display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;margin-right:4px}
+.tag-blue{background:rgba(59,107,181,.1);color:var(--accent)}
+.tag-green{background:rgba(58,143,114,.1);color:var(--accent3)}
+.tag-purple{background:rgba(99,102,241,.1);color:var(--purple)}
+.tag-warm{background:rgba(192,136,48,.1);color:var(--warm)}
+.tag-red{background:rgba(184,64,64,.1);color:var(--red)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:700px){.grid2,.grid3{grid-template-columns:1fr}}
+
+/* ── Data flow diagrams ── */
+.flow-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+.flow-box{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:16px 18px;min-width:150px;text-align:center;flex:1;max-width:280px;box-shadow:var(--shadow)}
+.flow-box .icon{font-size:20px;margin-bottom:6px}
+.flow-box .title{font-size:13px;font-weight:700}
+.flow-box .desc{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+.flow-box.highlight{border-color:var(--accent);border-width:2px;background:rgba(59,107,181,.03)}
+.flow-box.sink{border-color:var(--accent3);border-width:2px;background:rgba(58,143,114,.03)}
+.flow-arrow{text-align:center;padding:4px 0;color:var(--muted);font-size:12px;font-weight:500}
+.flow-arrow .arr{font-size:18px;color:var(--accent);letter-spacing:-2px}
+.flow-split{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.flow-split-col{flex:1;min-width:200px;max-width:420px}
+
+/* ── Vertical flow (top-to-bottom pipeline) ── */
+.vflow{display:flex;flex-direction:column;align-items:center;gap:0;margin:16px 0;max-width:600px;margin-left:auto;margin-right:auto}
+.vflow-step{display:flex;align-items:flex-start;gap:14px;width:100%;padding:14px 18px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:var(--shadow);position:relative}
+.vflow-step .vstep-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.vflow-step .vstep-body{flex:1;min-width:0}
+.vflow-step .vstep-title{font-size:14px;font-weight:700;margin-bottom:2px}
+.vflow-step .vstep-desc{font-size:12px;color:var(--muted);line-height:1.6}
+.vflow-step .vstep-desc code{background:var(--bg);padding:1px 6px;border-radius:4px;font-size:11px}
+.vflow-conn{width:2px;height:24px;background:linear-gradient(180deg,var(--border),var(--accent));position:relative}
+.vflow-conn::after{content:'';position:absolute;bottom:-4px;left:-4px;width:10px;height:10px;background:var(--accent);border-radius:50%}
+/* Branching: 1 → many */
+.vflow-branch{display:flex;gap:10px;width:100%}
+.vflow-branch .vflow-conn-h{flex:1;height:2px;background:linear-gradient(90deg,var(--accent),var(--border));align-self:center;min-width:16px}
+.vflow-branch .vflow-step{flex:1;min-width:0}
+.vflow-branch-merge{display:flex;gap:10px;width:100%}
+.vflow-branch-merge .vflow-step{flex:1;min-width:0}
+.vflow .vflow-label{text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:6px 0;text-transform:uppercase;letter-spacing:.05em;width:100%}
+.vflow-step.hl{border-color:var(--accent);border-width:2px;background:rgba(59,107,181,.03)}
+.vflow-step.hl .vstep-icon{background:rgba(59,107,181,.1);color:var(--accent)}
+.vflow-step.sink{border-color:var(--accent3);border-width:2px;background:rgba(58,143,114,.03)}
+.vflow-step.sink .vstep-icon{background:rgba(58,143,114,.1);color:var(--accent3)}
+.vflow-step.warn{border-color:var(--purple);border-width:2px;background:rgba(99,102,241,.03)}
+.vflow-step.warn .vstep-icon{background:rgba(99,102,241,.1);color:var(--purple)}
+
+/* ── Step pipeline ── */
+.pipeline{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:flex-start;margin:16px 0}
+.pipe-step{background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:12px 16px;text-align:center;min-width:100px;max-width:150px;flex:1}
+.pipe-step .step-num{font-family:'DM Sans',sans-serif;font-size:18px;font-weight:800;color:var(--accent);margin-bottom:4px}
+.pipe-step .step-title{font-size:12px;font-weight:700;margin-bottom:2px}
+.pipe-step .step-desc{font-size:10px;color:var(--muted);line-height:1.4}
+.pipe-conn{display:flex;align-items:center;color:var(--muted);font-size:16px;padding:0 2px;align-self:center;margin-top:8px}
+
+/* ── Callouts ── */
+.callout{background:rgba(99,102,241,.06);border-left:3px solid var(--purple);border-radius:0 6px 6px 0;padding:14px 18px;margin:16px 0;font-size:12px;line-height:1.7}
+.callout.info{background:rgba(59,107,181,.06);border-left-color:var(--accent)}
+.callout.green{background:rgba(58,143,114,.06);border-left-color:var(--accent3)}
+.callout strong{color:var(--text)}
+
+.footer{text-align:center;padding:32px 0;border-top:1px solid var(--border);margin-top:48px;color:var(--muted);font-size:11px}
+
+/* ── Compact detail cards ── */
+.detail-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:16px}
+.detail-card{background:var(--bg);border-radius:8px;padding:14px 16px;border:1px solid var(--border)}
+.detail-card h4{font-size:13px;font-weight:700;margin:0 0 6px;color:var(--text)}
+.detail-card p{font-size:11px;color:var(--muted);line-height:1.6}
+
+/* ── Chat ── */
+#chat-fab{position:fixed;bottom:24px;right:24px;z-index:10001;width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#1c2b3d 0%,#2a3f5f 100%);color:#fff;cursor:pointer;box-shadow:0 4px 16px rgba(30,64,175,.25);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s,opacity .2s;text-decoration:none}
+#chat-fab:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(30,64,175,.35)}
+.chat-panel{position:fixed;bottom:20px;right:20px;width:clamp(340px,38vw,520px);height:clamp(360px,55vh,620px);min-width:300px;min-height:300px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.15);z-index:10002;display:none;flex-direction:column;overflow:hidden}
+.chat-panel.open{display:flex}
+.chat-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(135deg,#1c2b3d 0%,#2a3f5f 100%);color:#fff;font-size:12px;font-weight:600;flex-shrink:0}
+.chat-header button{background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:14px;padding:2px 6px}
+.chat-header button:hover{color:#fff}
+.chat-body{flex:1;overflow-y:auto;padding:8px 12px;font-size:12px;line-height:1.5}
+.chat-body .msg{margin-bottom:6px;max-width:92%}
+.chat-body .msg.assistant .bubble{background:var(--bg);color:var(--text);border-radius:10px 10px 10px 2px;display:inline-block;padding:6px 10px;max-width:100%;font-size:12px;overflow-x:auto;word-wrap:break-word}
+.chat-body .msg.user{text-align:right;margin-left:auto}
+.chat-body .msg.user .bubble{background:#3b6bb5;color:#fff;border-radius:10px 10px 2px 10px;display:inline-block;padding:6px 10px;text-align:left;font-size:12px}
+.chat-body .msg.assistant .bubble h2{font-size:14px;margin:6px 0 2px;font-weight:700}
+.chat-body .msg.assistant .bubble h3{font-size:12px;margin:4px 0 2px;font-weight:700}
+.chat-body .msg.assistant .bubble ul{margin:2px 0;padding-left:14px}
+.chat-body .msg.assistant .bubble li{margin:1px 0}
+.chat-body .msg.assistant .bubble table{border-collapse:collapse;width:100%;margin:3px 0;font-size:11px}
+.chat-body .msg.assistant .bubble th,.chat-body .msg.assistant .bubble td{border:1px solid var(--border);padding:2px 6px;text-align:left}
+.chat-body .msg.assistant .bubble th{background:var(--bg);font-weight:600}
+.chat-body .msg.assistant .bubble strong{color:var(--text)}
+.chat-body .msg.assistant .bubble pre{background:#1e293b;color:#e2e8f0;padding:8px 12px;border-radius:6px;overflow-x:auto;font-size:11px;line-height:1.5;margin:4px 0;white-space:pre}
+.chat-body .msg.assistant .bubble code{font-size:11px}
+.chat-body .msg.assistant .bubble pre code{background:none;padding:0;color:inherit}
+.chat-footer{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);flex-shrink:0}
+.chat-footer input{flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;outline:none;background:var(--bg);color:var(--text)}
+.chat-footer input:focus{border-color:var(--accent)}
+.chat-footer button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:600;font-size:12px}
+.chat-footer button:disabled{opacity:.5;cursor:default}
+.chat-thinking{font-size:11px;color:var(--muted);padding:2px 0 6px;display:flex;align-items:center;gap:6px}
+.dot-pulse{display:inline-flex;gap:3px;align-items:center}
+.dot-pulse span{width:5px;height:5px;background:var(--muted);border-radius:50%;animation:dot-bounce 1.2s infinite ease-in-out}
+.dot-pulse span:nth-child(2){animation-delay:.2s}
+.dot-pulse span:nth-child(3){animation-delay:.4s}
+@keyframes dot-bounce{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-6px);opacity:1}}
+.chat-suggestions{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chat-suggestions button{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:3px 10px;font-size:10px;cursor:pointer;color:var(--text);font-family:inherit;transition:background .15s}
+.chat-suggestions button:hover{background:var(--border);border-color:var(--accent)}
+[data-theme=dark] .chat-body .msg.assistant .bubble{background:#1e293b;color:#d4d6db}
+[data-theme=dark] .chat-footer{background:#1a1d24;border-color:#2d3039}
+[data-theme=dark] .chat-footer input{background:#111318;border-color:#2d3039;color:#d4d6db}
+[data-theme=dark] .chat-suggestions button{background:#1e293b;border-color:#334155;color:#d4d6db}
+[data-theme=dark] .chat-suggestions button:hover{background:#334155}
+[data-theme=dark] #chat-fab{box-shadow:0 4px 16px rgba(30,64,175,.4)}
+@media(max-width:500px){.chat-panel{width:calc(100vw-16px);height:60vh;right:8px;bottom:8px}#chat-fab{bottom:16px;right:16px;width:44px;height:44px}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Demo Sales Dashboard</h1>
+  <a href="https://github.com/chichichickenpie114514/demo-dashboard-public" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.5);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,.12);border-radius:6px;transition:color .15s,border-color .15s" title="GitHub" onmouseenter="this.style.color='rgba(255,255,255,.85)';this.style.borderColor='rgba(255,255,255,.35)'" onmouseleave="this.style.color='rgba(255,255,255,.5)';this.style.borderColor='rgba(255,255,255,.12)'"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-1px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
+  <button class="theme" onclick="toggleDark()" id="theme-btn"><i data-lucide="moon" style="width:14px;height:14px;vertical-align:-2px"></i></button>
+  <a href="/" class="back"><i data-lucide="arrow-left" style="width:12px;height:12px;vertical-align:-1px"></i> Dashboard</a>
+</header>
+
+<div class="page">
+
+  <!-- ═══ HERO ═══ -->
+  <div class="hero">
+    <h2>Architecture & Data Flow</h2>
+    <p class="sub">介護事業向け売上ダッシュボード — 完全デモ版。期間選択、8タブ、AI分析・チャット、配賦計算、Google Mapsマップまで実装。全データは決定論的シミュレーション（seed=42）。</p>
+    <div class="kpi-row">
+      <div class="kpi-badge"><div class="num">26</div><div class="lbl">施設</div></div>
+      <div class="kpi-badge"><div class="num">~1,800</div><div class="lbl">利用者</div></div>
+      <div class="kpi-badge"><div class="num">12</div><div class="lbl">月次スナップ</div></div>
+      <div class="kpi-badge"><div class="num">195</div><div class="lbl">JSON ファイル</div></div>
+      <div class="kpi-badge"><div class="num">40+</div><div class="lbl">API エンドポイント</div></div>
+      <div class="kpi-badge"><div class="num">8</div><div class="lbl">タブ + モーダル</div></div>
+    </div>
+  </div>
+
+  <!-- ═══ PIPELINE: PRODUCTION vs DEMO ═══ -->
+  <div class="section">
+    <div class="section-label">Pipeline — Production vs Demo</div>
+
+    <div class="grid2" style="margin-bottom:24px;gap:12px">
+      <div class="cmp-header-prod" style="background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(99,102,241,.02));border:2px solid rgba(99,102,241,.2);border-radius:12px;padding:20px 24px;text-align:center">
+        <div style="font-size:24px;font-weight:800;color:var(--purple);font-family:'DM Sans','Noto Sans JP',sans-serif;letter-spacing:-.02em;margin-bottom:6px">Production</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">Monthly ETL pipeline<br>Cloud Scheduler → Cloud Run Job → MySQL / AppSheet / Sheets<br>SQLite intermediate processing → GCS → Flask runtime</div>
+        <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+          <span class="tag tag-purple">Real data</span><span class="tag tag-purple">Scheduled</span><span class="tag tag-purple">~2 min</span>
+        </div>
+      </div>
+      <div class="cmp-header-demo" style="background:linear-gradient(135deg,rgba(59,107,181,.08),rgba(59,107,181,.02));border:2px solid rgba(59,107,181,.2);border-radius:12px;padding:20px 24px;text-align:center">
+        <div style="font-size:24px;font-weight:800;color:var(--accent);font-family:'DM Sans','Noto Sans JP',sans-serif;letter-spacing:-.02em;margin-bottom:6px">Demo</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">Static generation pipeline<br>generate_demo_data.py → 195 JSON baked into Docker image<br>Cloud Run deploy → Flask runtime with GCSDataStore</div>
+        <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+          <span class="tag tag-blue">Synthetic</span><span class="tag tag-blue">Deterministic</span><span class="tag tag-blue">Instant</span>
+        </div>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:20px">同一コードベース（<code>server.py</code>, <code>index.html</code>, AI ロジックは共通）。違いはデータパイプラインのみ。</p>
+
+    <!-- Stage 1: Data Source -->
+    <div style="text-align:center;margin-bottom:10px"><span class="stage-pill" style="display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 16px;font-size:11px;font-weight:700;color:var(--text);letter-spacing:.04em">Stage 1 — Data Source</span></div>
+    <div class="grid2" style="align-items:stretch;margin-bottom:8px">
+      <div class="card" style="border-left:3px solid var(--purple);margin-bottom:0">
+        <div style="font-size:12px;color:var(--muted)">
+          <strong style="color:var(--text)">3 real-time sources, every month:</strong><br>
+          <span style="margin-right:12px"><i data-lucide="database" style="width:12px;height:12px;vertical-align:-1px"></i> MySQL (Cloud SQL) — <code>billing_records</code> + <code>journal_entries</code></span><br>
+          <span style="margin-right:12px"><i data-lucide="clipboard-list" style="width:12px;height:12px;vertical-align:-1px"></i> AppSheet API — 6 facility master tables</span><br>
+          <span><i data-lucide="trending-up" style="width:12px;height:12px;vertical-align:-1px"></i> Google Sheets — 配賦マトリクス</span>
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent);margin-bottom:0">
+        <div style="font-size:12px;color:var(--muted)">
+          <strong style="color:var(--text)">Static generation, one-time:</strong><br>
+          <code>generate_demo_data.py</code> — deterministic (seed=42).<br>
+          26 fictional facilities across Tokyo / Osaka / Fukuoka.<br>
+          ~1,800 synthetic persons, 12 months, 195 JSON files.<br>
+          All cross-file totals verified 100.0% consistent.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow" style="padding:2px 0 6px"></div>
+
+    <!-- Stage 2: Processing -->
+    <div style="text-align:center;margin-bottom:10px"><span class="stage-pill" style="display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 16px;font-size:11px;font-weight:700;color:var(--text);letter-spacing:.04em">Stage 2 — Processing</span></div>
+    <div class="grid2" style="align-items:stretch;margin-bottom:8px">
+      <div class="card" style="border-left:3px solid var(--purple);margin-bottom:0">
+        <div style="font-size:12px;color:var(--muted)">
+          <strong style="color:var(--text)">Monthly batch ETL (~2 min):</strong><br>
+          ① Cloud Scheduler triggers Cloud Run Job on 1st of month<br>
+          ② MySQL tables → SQLite (isolates production DB)<br>
+          ③ <code>display_for_base_name()</code> — NFKC name normalization<br>
+          ④ <code>sales_type → category</code> + residential classification<br>
+          ⑤ Window functions + GROUP BY → 16 JSON file types/month
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent);margin-bottom:0">
+        <div style="font-size:12px;color:var(--muted)">
+          <strong style="color:var(--text)">None — data is pre-generated:</strong><br>
+          JSON files are produced offline by <code>generate_demo_data.py</code>.<br>
+          No runtime ETL, no database queries, no external APIs.<br>
+          Data is baked into the Docker image at build time.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow" style="padding:2px 0 6px"></div>
+
+    <!-- Stage 3: Storage -->
+    <div style="text-align:center;margin-bottom:10px"><span class="stage-pill" style="display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 16px;font-size:11px;font-weight:700;color:var(--text);letter-spacing:.04em">Stage 3 — Storage</span></div>
+    <div class="grid2" style="align-items:stretch;margin-bottom:8px">
+      <div class="card" style="border-left:3px solid var(--purple);margin-bottom:0">
+        <div style="font-size:12px;color:var(--muted)">
+          <strong style="color:var(--text)">GCS bucket:</strong><br>
+          JSON uploaded to Cloud Storage, organized by month.<br>
+          <code>GCSDataStore</code> loads on demand with TTL cache invalidation.
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent);margin-bottom:0">
+        <div style="font-size:12px;color:var(--muted)">
+          <strong style="color:var(--text)">Docker image filesystem:</strong><br>
+          <code>data/</code> directory baked into the container image.<br>
+          <code>GCSDataStore</code> reads from local disk — same API as production.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow" style="padding:2px 0 6px"></div>
+
+    <!-- Stage 4: Runtime (shared) -->
+    <div style="text-align:center;margin-bottom:10px"><span style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 16px;font-size:11px;font-weight:700;color:var(--accent3);letter-spacing:.04em">Stage 4 — Runtime & Frontend <span style="color:var(--muted);font-weight:400">(identical)</span></span></div>
+    <div class="card" style="border-left:3px solid var(--accent3);margin-bottom:8px">
+      <div style="font-size:12px;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap">
+        <span><i data-lucide="cloud" style="width:12px;height:12px;vertical-align:-1px"></i> Cloud Run + Docker + gunicorn (2 workers)</span>
+        <span><i data-lucide="server" style="width:12px;height:12px;vertical-align:-1px"></i> Flask — 40+ REST API endpoints</span>
+        <span><i data-lucide="monitor" style="width:12px;height:12px;vertical-align:-1px"></i> <code>index.html</code> SPA — 8 tabs, Chart.js, Google Maps</span>
+        <span><i data-lucide="shield" style="width:12px;height:12px;vertical-align:-1px"></i> Google OAuth 2.0 — GSM for secrets</span>
+      </div>
+    </div>
+
+    <div class="flow-arrow" style="padding:2px 0 6px"></div>
+
+    <!-- Stage 5: AI (diff only in provider) -->
+    <div style="text-align:center;margin-bottom:10px"><span class="stage-pill" style="display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 16px;font-size:11px;font-weight:700;color:var(--text);letter-spacing:.04em">Stage 5 — AI</span></div>
+    <div class="grid2" style="align-items:stretch;margin-bottom:8px">
+      <div class="card" style="border-left:3px solid var(--purple);margin-bottom:0">
+        <div style="font-size:12px;color:var(--muted)">
+          <strong style="color:var(--text)">OpenAI:</strong><br>
+          gpt-5-mini for analysis (16 scopes, streaming NDJSON).<br>
+          gpt-5 for chat (function calling, 9 tools, multi-turn).
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent);margin-bottom:0">
+        <div style="font-size:12px;color:var(--muted)">
+          <strong style="color:var(--text)">DeepSeek:</strong><br>
+          v4 Flash for analysis (16 scopes, streaming NDJSON).<br>
+          v4 Pro for chat (function calling, 9 tools, multi-turn).<br>
+          Same system prompts, same API surface (<code>ai_analyze.py</code> / <code>ai_chat.py</code>).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SERVICE OFFICE RESOLUTION ═══ -->
+  <div class="section">
+    <div class="section-label green">Data Lineage — From Raw Claim to Dashboard</div>
+
+    <div class="vflow">
+      <div class="vflow-step">
+        <div class="vstep-icon" style="background:rgba(240,240,245,.1);color:var(--muted)"><i data-lucide="file-text" style="width:20px;height:20px"></i></div>
+        <div class="vstep-body">
+          <div class="vstep-title">1. Raw billing_records</div>
+          <div class="vstep-desc">Each row: <code>base_name</code> + <code>sales_type</code> + <code>credit_amount</code> + <code>person_id</code> + <code>debit_account</code> + <code>service_month</code>. Source: MySQL Cloud SQL, pre-aggregated monthly.</div>
+        </div>
+      </div>
+      <div class="vflow-conn"></div>
+      <div class="vflow-step hl">
+        <div class="vstep-icon" style="background:rgba(59,107,181,.1);color:var(--accent)"><i data-lucide="git-branch" style="width:20px;height:20px"></i></div>
+        <div class="vstep-body">
+          <div class="vstep-title">2. display_for_base_name() — NFKC Normalization</div>
+          <div class="vstep-desc">Full-width/half-width unification, whitespace normalization. Rule-based name deduplication merges variant spellings of the same facility. Unresolvable rows → <code>NULL</code> (excluded from aggregates).</div>
+        </div>
+      </div>
+      <div class="vflow-conn"></div>
+      <div class="vflow-step hl">
+        <div class="vstep-icon" style="background:rgba(59,107,181,.1);color:var(--accent)"><i data-lucide="map-pin" style="width:20px;height:20px"></i></div>
+        <div class="vstep-body">
+          <div class="vstep-title">3. service_office Resolution + Category Classification</div>
+          <div class="vstep-desc">Normalized <code>base_name → office_name → area</code>. <code>sales_type → category</code> via pattern matching. <code>sales_type → is_residential (bool)</code> — residential care types detected by keyword patterns with NFKC normalization.</div>
+        </div>
+      </div>
+      <div class="vflow-conn"></div>
+      <div class="vflow-label">Branches into two aggregation paths</div>
+      <div class="vflow-branch">
+        <div class="vflow-step hl" style="flex:1">
+          <div class="vstep-icon" style="background:rgba(59,107,181,.1);color:var(--accent)"><i data-lucide="bar-chart-3" style="width:20px;height:20px"></i></div>
+          <div class="vstep-body">
+            <div class="vstep-title">Path A: Monthly Summary</div>
+            <div class="vstep-desc">Aggregated by <code>service_office × sales_type</code>. Feeds 拠点, 分析, サービス, 利用者, 推移, マップ tabs. SUM(credit_amount) GROUP BY. Residential users identified by <code>is_residential</code> flag.</div>
+          </div>
+        </div>
+        <div class="vflow-step sink" style="flex:1">
+          <div class="vstep-icon" style="background:rgba(58,143,114,.1);color:var(--accent3)"><i data-lucide="file-digit" style="width:20px;height:20px"></i></div>
+          <div class="vstep-body">
+            <div class="vstep-title">Path B: Journal Entry</div>
+            <div class="vstep-desc">From <code>journal_entries</code> at accounting line granularity. Feeds 拠点(配賦) and 拠点(配賦2) tabs. Split-aware facility resolution. Haifu matrix + management journal overlay.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:12px">Path A and Path B totals agree within 0.2%. Variance from proration rounding and zero-net row removal.</p>
+  </div>
+
+  <!-- ═══ 18 FILE TYPES PER MONTH ═══ -->
+  <div class="section">
+    <div class="section-label">Snapshot Files — 16 Per-Month + 3 Root (195 Total)</div>
+    <div class="detail-cards">
+      <div class="detail-card"><h4>kpi.json</h4><p>月次 KPI — 合計売上、保険/自費負担額、利用者数、拠点数</p></div>
+      <div class="detail-card"><h4>facilities_billing.json</h4><p>拠点別売上 — service_office × sales_type のクロス集計</p></div>
+      <div class="detail-card"><h4>facilities_resident.json</h4><p>拠点別居住者数 — is_residential フラグで集計</p></div>
+      <div class="detail-card"><h4>facility_details.json</h4><p>拠点 drill-down — カテゴリ別内訳 + 推移トレンド</p></div>
+      <div class="detail-card"><h4>facility_cards.json</h4><p>カードビュー用 — 配賦込み拠点サマリ</p></div>
+      <div class="detail-card"><h4>facility_cards_detail.json</h4><p>カード詳細 — サービス別 + 配賦行</p></div>
+      <div class="detail-card"><h4>facility_trends.json</h4><p>全拠点の月別推移 — 6〜12 ヶ月</p></div>
+      <div class="detail-card"><h4>persons.json</h4><p>利用者一覧 — ~1,800 名、カテゴリ別金額</p></div>
+      <div class="detail-card"><h4>person_details.json</h4><p>利用者詳細 — 全サービス明細 + 利用率</p></div>
+      <div class="detail-card"><h4>services.json</h4><p>サービス種別集計 — sales_type 別の売上・利用者数</p></div>
+      <div class="detail-card"><h4>analysis.json</h4><p>介護度分析 — 要介護 1〜5 + 居住系の保険利用状況</p></div>
+      <div class="detail-card"><h4>cross_sell.json</h4><p>クロスセル分析 — 居住者の他拠点サービス利用</p></div>
+      <div class="detail-card"><h4>alerts.json</h4><p>アラート — 前月比急変・未利用枠の検出</p></div>
+      <div class="detail-card"><h4>haifu.json</h4><p>配賦データ — 流入/流出、拠点別 native/inflow/outflow</p></div>
+      <div class="detail-card"><h4>mgmt_journal.json</h4><p>管理会計仕訳 — 5 コードの手入力データ</p></div>
+      <div class="detail-card"><h4>map.json</h4><p>マップ用 — 月次売上 + 利用者数</p></div>
+      <div class="detail-card"><h4>facility_registry.json</h4><p>施設台帳 — 固定座標・住所・種別（全月共通）</p></div>
+      <div class="detail-card"><h4>months.json</h4><p>利用可能月一覧 — 全 month のインデックス</p></div>
+      <div class="detail-card"><h4>trend_history.json</h4><p>全社推移 — 月次のカテゴリ別・全体売上</p></div>
+    </div>
+    <div class="callout green" style="margin-top:16px">
+      <strong>整合性保証:</strong> KPI 合計 = 拠点別売上の和 = サービス別売上の和（100.0% 一致）。個人明細の合計 = 各個人の請求行の和。配賦 inflow + outflow = 0。generate_demo_data.py は決定論的（seed=42）で、全 195 ファイルが 1 回の実行で生成され、整合性が保証される。
+    </div>
+  </div>
+
+  <!-- ═══ AI ARCHITECTURE ═══ -->
+  <div class="section">
+    <div class="section-label purple">AI Integration — Deep Dive</div>
+    <div class="grid2">
+      <div class="card">
+        <h3>AI Analysis <span class="tag tag-blue">v4 Flash</span></h3>
+        <p>16 の scope それぞれに専用の分析エンドポイント。scope は現在の UI フィルター状態（カテゴリ chip、検索クエリ、行ミュート、施設選択）を AI に渡す。</p>
+        <p style="margin-top:8px;font-weight:600">Streaming Pipeline:</p>
+        <div class="pipeline" style="margin:8px 0">
+          <div class="pipe-step"><div class="step-title">Flask</div><div class="step-desc">UI state + scope データを sanitize</div></div>
+          <div class="pipe-conn">→</div>
+          <div class="pipe-step"><div class="step-title">DeepSeek</div><div class="step-desc">stream=True NDJSON</div></div>
+          <div class="pipe-conn">→</div>
+          <div class="pipe-step"><div class="step-title">Flask SSE</div><div class="step-desc">text/event-stream で転送</div></div>
+          <div class="pipe-conn">→</div>
+          <div class="pipe-step"><div class="step-title">Browser</div><div class="step-desc">marked.js でレンダリング</div></div>
+        </div>
+        <ul style="margin-top:8px">
+          <li>システムプロンプト: <code>docs/AI_SYSTEM_PROMPT.md</code> — 再デプロイ不要で編集可能</li>
+          <li>5 分間のインメモリキャッシュ（TTL エビクション）</li>
+          <li>30 calls/h/user + 200 calls/h global（Sybil 耐性）</li>
+          <li>日本語出力のみ — [良]/[注]/[警] の極性タグ付き</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>AI Chat <span class="tag tag-purple">v4 Pro</span></h3>
+        <p>データ + アーキテクチャに関する汎用チャット。8 つの function-calling ツールでオンデマンドデータアクセス。</p>
+        <table class="tbl" style="margin-top:8px">
+          <tr><th>Tool</th><th>Returns</th></tr>
+          <tr><td>get_kpi</td><td>月次 KPI データ</td></tr>
+          <tr><td>get_facilities</td><td>拠点別売上（カテゴリ別内訳付き）</td></tr>
+          <tr><td>get_analysis</td><td>介護度別分析</td></tr>
+          <tr><td>get_haifu</td><td>配賦データ（native/inflow/outflow）</td></tr>
+          <tr><td>get_persons</td><td>利用者一覧（検索・ソート対応）</td></tr>
+          <tr><td>get_person_detail</td><td>個人 drill-down（全サービス + 利用率）</td></tr>
+          <tr><td>get_services</td><td>サービス種別別の売上・利用者数</td></tr>
+          <tr><td>get_facility_detail</td><td>拠点 drill-down（内訳 + 推移）</td></tr>
+        </table>
+        <p style="margin-top:8px;font-size:11px;color:var(--muted)">システムプロンプト (<code>docs/AI_CHAT_PROMPT.md</code>) は 8 タブ・データモデル・配賦ロジックの全詳細を含む。streaming + thinking indicator + elapsed timer。marked.js による Markdown レンダリング。文脈に応じたフォローアップ提案。</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Filter Awareness:</strong> 16 の分析 scope と 8 つの chat tools すべてが、現在の期間選択 (<code>start</code>/<code>end</code>) と UI フィルター状態を AI に渡す。chat のシステムプロンプトはダッシュボードアーキテクチャの全文を含むため、「この数字の意味は？」と「このダッシュボードどう動いてるの？」の両方に答えられる。
+    </div>
+
+    <div class="callout info">
+      <strong>Security Sanitization:</strong> AI に送る前に全データを sanitize。内部 ID（person_id, base_name）は除去され、表示用の名前・金額・カテゴリのみが OpenAI に送信される。システムプロンプト + データはユーザーの API キー消費内で処理され、サーバー側で OpenAI にログは残らない設計。
+    </div>
+  </div>
+
+  <!-- ═══ HAIFU ═══ -->
+  <div class="section">
+    <div class="section-label green">社内間配賦 (Internal Allocation)</div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Business Logic</h3>
+        <p>訪問介護・訪問看護のステーションは居住系施設にスタッフを派遣する。保険請求はステーションが行うが、実際のサービス提供は居住施設で発生する。配賦システムはステーションの売上を、スタッフが実際に働いた居住系施設に再分配する。</p>
+        <p style="margin-top:8px"><strong>居住系施設</strong> → <span style="color:#3a8f72">流入 (+)</span> — ステーションから配分される売上。緑色表示。</p>
+        <p><strong>訪問ステーション</strong> → <span style="color:#b84040">流出 (&minus;)</span> — 居住施設へ配分する売上。赤色表示。</p>
+        <p style="margin-top:8px">&#x2211; inflow + &#x2211; outflow = 0 — 配賦は全社レベルで収支中立。</p>
+      </div>
+      <div class="card">
+        <h3>Implementation</h3>
+        <p>オリジナルは Google Sheets の配賦マトリクスから <code>haifu_sync.py</code> で読み込み。月次・売上コード別に配賦先（destinations, +）と配賦元（sources, &minus;）を記録。</p>
+        <p style="margin-top:8px">2 つのカードビュータブが配賦データを重畳:</p>
+        <ul>
+          <li><strong>拠点（配賦）</strong> — 請求 + 配賦の合算</li>
+          <li><strong>拠点（配賦2）</strong> — 請求 + 配賦 + 管理会計仕訳（5 つの非標準売上コード）</li>
+        </ul>
+        <p style="margin-top:8px;font-size:11px;color:var(--muted)">デモ版では決定論的にバランスの取れた配賦ペアを生成（haifu_sync.py の fetch() は空リストを返し、generate_demo_data.py が合成データを作成）。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TECH STACK ═══ -->
+  <div class="section">
+    <div class="section-label">Tech Stack — Full Details</div>
+    <table class="tbl">
+      <tr><th>Layer</th><th>Technology</th><th>Details</th></tr>
+      <tr><td>Backend</td><td>Python / Flask</td><td>40+ API endpoints, gunicorn (2 workers, sync), Cloud Run</td></tr>
+      <tr><td>Frontend</td><td>Vanilla JS SPA</td><td>Single index.html (~6,500 lines), Chart.js 4.x, Lucide icons, marked.js</td></tr>
+      <tr><td>Data Store</td><td>JSON → in-memory cache</td><td>195 pre-computed files, 12 months, GCSDataStore with TTL, GCS optional</td></tr>
+      <tr><td>AI (Analysis)</td><td>DeepSeek v4 Flash</td><td>16 scope-specific streaming endpoints, filter-aware, 5-min cache</td></tr>
+      <tr><td>AI (Chat)</td><td>DeepSeek v4 Pro</td><td>Function calling (8 tools), markdown, streaming, guardrails</td></tr>
+      <tr><td>Auth</td><td>Google OAuth 2.0</td><td>Any Google account, Flask session, Secret Manager for keys</td></tr>
+      <tr><td>Infrastructure</td><td>Google Cloud Run</td><td>Docker container, auto-scaling (max 3), HTTPS (TLS 1.3), concurrency 20</td></tr>
+      <tr><td>Snapshot Pipeline</td><td>Cloud Run Job</td><td>2 vCPU / 4 GB, ~2 min runtime, SQLite intermediate, GCS upload</td></tr>
+      <tr><td>Data Generation</td><td>generate_demo_data.py</td><td>Deterministic (seed=42), cross-file consistent, 26 facilities, ~1,800 persons</td></tr>
+      <tr><td>Monitoring</td><td>print() → Cloud Logging</td><td>Structured log lines, AI cache hit/miss, rate-limit events</td></tr>
+    </table>
+  </div>
+
+  <!-- ═══ SECURITY ═══ -->
+  <div class="section">
+    <div class="section-label">Security & Rate Limiting</div>
+    <table class="tbl">
+      <tr><th>Layer</th><th>Mechanism</th><th>Cap</th></tr>
+      <tr><td>Authentication</td><td>Google OAuth 2.0 — any Google account</td><td>All endpoints gated</td></tr>
+      <tr><td>AI per-user rate</td><td>Sliding window counter in server memory</td><td>30 calls/hour/user</td></tr>
+      <tr><td>AI global rate</td><td>Cross-user counter — Sybil-resistant</td><td>200 total calls/hour</td></tr>
+      <tr><td>Instance cap</td><td>Cloud Run max instances</td><td>3 instances max</td></tr>
+      <tr><td>Concurrency</td><td>Per-instance request limit</td><td>20 concurrent</td></tr>
+      <tr><td>Credentials</td><td>GCP Secret Manager</td><td>Zero secrets in code/git</td></tr>
+      <tr><td>Data exposure</td><td>100% synthetic data</td><td>No real PII</td></tr>
+      <tr><td>Transport</td><td>Cloud Run HTTPS enforcement</td><td>TLS 1.3</td></tr>
+      <tr><td>AI data sanitization</td><td>Strip internal IDs before sending to LLM</td><td>Only display names + amounts</td></tr>
+    </table>
+  </div>
+
+  <!-- ═══ DEMO vs PRODUCTION ═══ -->
+  <div class="section">
+    <div class="section-label">Demo vs Production — What Changed</div>
+    <div class="callout info">
+      <strong>同一コードベース:</strong> server.py, index.html, gcs_store.py, ai_analyze.py, ai_chat.py は本番とデモで共通。以下 5 点のみがデモ用に変更されている。
+    </div>
+    <table class="tbl">
+      <tr><th>Dimension</th><th>Production</th><th>Demo</th></tr>
+      <tr><td>Data source</td><td>MySQL Cloud SQL + AppSheet + Google Sheets + xlsx</td><td>generate_demo_data.py (seed=42)</td></tr>
+      <tr><td>Data store</td><td>GCS bucket (demo-dashboard-data)</td><td>Docker image 内の data/ ディレクトリ</td></tr>
+      <tr><td>AI model</td><td>OpenAI gpt-5-mini / gpt-5</td><td>DeepSeek v4 Flash / v4 Pro</td></tr>
+      <tr><td>Auth</td><td>Domain-restricted (会社ドメインのみ)</td><td>Any Google account</td></tr>
+      <tr><td>Pipeline</td><td>Cloud Scheduler → Cloud Run Job (毎月 1 日)</td><td>Static pre-generated JSON (12 ヶ月固定)</td></tr>
+      <tr><td>配賦データ</td><td>Google Sheets から haifu_sync.py が実読み</td><td>決定論的シミュレーション</td></tr>
+      <tr><td>管理会計仕訳</td><td>手入力 xlsx から manage_jrn_sync.py が読み込み</td><td>決定論的シミュレーション</td></tr>
+    </table>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px">それ以外の全アーキテクチャ — Flask サーバー、GCSDataStore の設計、40+ API エンドポイント、フロントエンド SPA、AI 統合、認証フロー、配賦ロジック — は本番と完全に同一。</p>
+  </div>
+
+  <!-- ═══ CODE STRUCTURE ═══ -->
+  <div class="section">
+    <div class="section-label">Code Structure</div>
+    <table class="tbl">
+      <tr><th>File</th><th>Lines</th><th>Role</th></tr>
+      <tr><td><code>server.py</code></td><td>~2,000</td><td>Flask app, 40+ endpoints, OAuth, AI chat backend, GCS store integration</td></tr>
+      <tr><td><code>index.html</code></td><td>~6,500</td><td>SPA frontend, Chart.js charts, all 8 tabs, modals, AI UI, dark mode</td></tr>
+      <tr><td><code>generate_demo_data.py</code></td><td>~1,300</td><td>Deterministic data generator, 195 JSON files, cross-file consistency</td></tr>
+      <tr><td><code>snapshot.py</code></td><td>~500</td><td>Monthly snapshot pipeline: MySQL → SQLite → JSON → GCS</td></tr>
+      <tr><td><code>config.py</code></td><td>~600</td><td>Business rules: name normalization, categories, haifu mappings, pricing</td></tr>
+      <tr><td><code>gcs_store.py</code></td><td>~200</td><td>GCSDataStore: JSON → memory cache with TTL eviction</td></tr>
+      <tr><td><code>ai_analyze.py</code></td><td>~200</td><td>AI analysis: scope builder, DeepSeek streaming, caching</td></tr>
+      <tr><td><code>ai_chat.py</code></td><td>~400</td><td>AI chat: function calling (8 tools), streaming, guardrails</td></tr>
+      <tr><td><code>server_snapshot.py</code></td><td>~2,800</td><td>Full-featured snapshot server (all analysis endpoints, haifu, care level)</td></tr>
+      <tr><td><code>about.html</code></td><td>~270</td><td>This page — architecture documentation</td></tr>
+      <tr><td><code>docs/</code></td><td>—</td><td>AI system prompts + developer guides (DASHBOARD_GUIDE.md, USAGE_GUIDE.md)</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- Chat FAB -->
+<button id="chat-fab" onclick="toggleChat()"><i data-lucide="message-circle" style="width:20px;height:20px"></i></button>
+
+<!-- Chat Panel -->
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <span>AI チャット</span>
+    <span style="flex:1"></span>
+    <button onclick="clearChat()">🗑</button>
+    <button onclick="toggleChat()">−</button>
+  </div>
+  <div class="chat-body" id="chat-body">
+    <div class="msg assistant"><span class="bubble">こんにちは。このダッシュボードの<strong>使い方（コンテンツ）</strong>と<strong>仕組み（技術構成）</strong>の両方について質問できます。</span></div>
+    <div class="chat-suggestions" id="chat-suggestions"></div>
+  </div>
+  <div class="chat-footer">
+    <input id="chat-input" type="text" placeholder="質問を入力..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button id="chat-send" onclick="sendChat()">送信</button>
+  </div>
+</div>
+
+<div class="footer">
+  Demo Sales Dashboard — Open Source Portfolio Demo<br>
+  <span style="font-size:11px;color:var(--muted)">
+    All data synthetic (generate_demo_data.py, seed=42). Facility names, person names, and financial figures are fictional. No real company or customer data included.<br>
+    <a href="https://github.com/chichichickenpie114514/demo-dashboard-public" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">github.com/chichichickenpie114514/demo-dashboard-public</a>
+  </span>
+</div>
+
+<script>
+function toggleDark(){const d=document.documentElement;const isDark=d.getAttribute('data-theme')==='dark';d.setAttribute('data-theme',isDark?'':'dark');document.getElementById('theme-btn').innerHTML=isDark?'<i data-lucide="moon" style="width:14px;height:14px;vertical-align:-2px"></i>':'<i data-lucide="sun" style="width:14px;height:14px;vertical-align:-2px"></i>';lucide.createIcons();localStorage.setItem('theme',isDark?'light':'dark')}
+if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');
+document.addEventListener('DOMContentLoaded',()=>{if(document.documentElement.getAttribute('data-theme')=='dark')document.getElementById('theme-btn').innerHTML='<i data-lucide="sun" style="width:14px;height:14px;vertical-align:-2px"></i>';lucide.createIcons();_chatSuggest(CHAT_INITIAL_SUGGESTIONS)});
+
+// ── Chat ──
+const CHAT_INITIAL_SUGGESTIONS=['このダッシュボードの技術スタックは？','配賦の仕組みを教えて','データはどうやって生成された？'];
+let chatMessages=[],chatStreaming=false;
+function _saveChat(){localStorage.setItem('chatMsgs',JSON.stringify(chatMessages));localStorage.setItem('chatOpen',document.getElementById('chat-panel').classList.contains('open')?'1':'0')}
+function _restoreChat(){const raw=localStorage.getItem('chatMsgs');if(!raw)return;try{chatMessages=JSON.parse(raw);if(!chatMessages.length)return;const body=document.getElementById('chat-body');body.innerHTML='';chatMessages.forEach(m=>{const d=document.createElement('div');d.className='msg '+m.role;d.innerHTML='<span class="bubble">'+(m.role==='assistant'?_chatMd(m.content):m.content.replace(/&/g,'&amp;').replace(/</g,'&lt;'))+'</span>';body.appendChild(d)});body.scrollTop=body.scrollHeight}catch(e){}}
+function toggleChat(){const open=document.getElementById('chat-panel').classList.toggle('open');document.getElementById('chat-fab').style.opacity=open?'0':'1';localStorage.setItem('chatOpen',open?'1':'0');if(open)document.getElementById('chat-input').focus()}
+window.addEventListener('beforeunload',_saveChat);
+if(localStorage.getItem('chatOpen')==='1'){_restoreChat();setTimeout(toggleChat,400)}
+function clearChat(){chatMessages=[];document.getElementById('chat-body').innerHTML='<div class="msg assistant"><span class="bubble">こんにちは。このダッシュボードの<strong>使い方（コンテンツ）</strong>と<strong>仕組み（技術構成）</strong>の両方について質問できます。</span></div><div class="chat-suggestions" id="chat-suggestions"></div>';_chatSuggest(CHAT_INITIAL_SUGGESTIONS);_saveChat()}
+function _chatMd(t){return typeof marked!=='undefined'?marked.parse(t,{breaks:true,gfm:true}):t.replace(/</g,'&lt;').replace(/\n/g,'<br>')}
+function _addMsg(role,text,isTool){const b=document.getElementById('chat-body');const d=document.createElement('div');d.className='msg '+(isTool?'tool':role==='user'?'user':'assistant');d.innerHTML='<span class="bubble">'+(role==='assistant'?_chatMd(text):text.replace(/&/g,'&amp;').replace(/</g,'&lt;'))+'</span>';b.appendChild(d);b.scrollTop=b.scrollHeight;return d}
+function _chatSuggest(items){const el=document.getElementById('chat-suggestions');if(!el)return;if(!items||!items.length){el.innerHTML='';return}el.innerHTML=items.map(q=>'<button onclick="document.getElementById(\'chat-input\').value=this.textContent;sendChat()">'+q+'</button>').join('')}
+async function sendChat(){if(chatStreaming)return;const input=document.getElementById('chat-input');const text=input.value.trim();if(!text)return;input.value='';_chatSuggest([]);chatStreaming=true;document.getElementById('chat-send').disabled=true;_addMsg('user',text);chatMessages.push({role:'user',content:text});const thinkDiv=document.createElement('div');thinkDiv.className='chat-thinking';thinkDiv.innerHTML='<span class="dot-pulse"><span></span><span></span><span></span></span> <span class="think-timer">0.0s</span>';document.getElementById('chat-body').appendChild(thinkDiv);const timerEl=thinkDiv.querySelector('.think-timer');const t0=Date.now();const timerInterval=setInterval(()=>{timerEl.innerHTML='分析中 '+((Date.now()-t0)/1000).toFixed(1)+'s'},200);let accText='',bubble=null;try{const r=await fetch('/api/ai-chat',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:chatMessages})});if(!r.ok)throw new Error('HTTP '+r.status);const reader=r.body.getReader();const decoder=new TextDecoder();let buf='';while(true){const{done,value}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();for(const line of lines){if(!line.trim())continue;try{const ev=JSON.parse(line);if(ev.type==='chunk'){if(!bubble){const adiv=_addMsg('assistant','');bubble=adiv.querySelector('.bubble')}accText+=ev.text;bubble.innerHTML=_chatMd(accText)||'...'}else if(ev.type==='done'){thinkDiv.remove();clearInterval(timerInterval);if(bubble){const elapsed=((Date.now()-t0)/1000).toFixed(1);bubble.insertAdjacentHTML('beforebegin','<div style="font-size:10px;color:var(--muted);margin-bottom:2px">考え終わりました（'+elapsed+'秒）</div>')}}else if(ev.type==='error'){thinkDiv.remove();clearInterval(timerInterval);const adiv=_addMsg('assistant',ev.message);adiv.querySelector('.bubble').style.color='#b84040'}}catch(e){}}}}catch(e){if(thinkDiv.parentNode){thinkDiv.remove();clearInterval(timerInterval)}const adiv=_addMsg('assistant','Error: '+e.message);adiv.querySelector('.bubble').style.color='#b84040'}if(thinkDiv.parentNode){thinkDiv.remove();clearInterval(timerInterval)}if(!bubble){_addMsg('assistant','（応答なし）');bubble=document.querySelector('#chat-body .msg:last-child .bubble')}chatMessages.push({role:'assistant',content:accText});const sugMatch=accText.match(/\[SUGGESTIONS\]\s*\n([\s\S]+)$/);if(sugMatch&&bubble){bubble.innerHTML=_chatMd(accText.replace(/\s*\[SUGGESTIONS\][\s\S]*$/,''));const sugs=sugMatch[1].trim().split('\n').filter(s=>s.trim());if(sugs.length>0){const sugDiv=document.getElementById('chat-suggestions');sugDiv.innerHTML=sugs.map(q=>'<button onclick="document.getElementById(\'chat-input\').value=this.textContent;sendChat()">'+q.replace(/^[\-•]\s*/,'')+'</button>').join('');document.getElementById('chat-body').appendChild(sugDiv)}}chatStreaming=false;document.getElementById('chat-send').disabled=false;document.getElementById('chat-input').focus()}
+</script>
+
+</body>
+</html>
